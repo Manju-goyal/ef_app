@@ -1,19 +1,30 @@
 import streamlit as st
 import numpy as np
 import cv2
-from tensorflow.keras.models import load_model
 import tempfile
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.applications import EfficientNetB0
+
+# 🔥 Fix for Keras loading issues
+tf.keras.backend.clear_session()
 
 st.title("💓 Heart EF Prediction App")
 
-# Load model
+# ✅ Load model safely
 @st.cache_resource
 def load_my_model():
-    return load_model("model.h5", compile=False)
+    return load_model(
+        "model.h5",
+        compile=False,
+        custom_objects={
+            "EfficientNetB0": EfficientNetB0
+        }
+    )
 
 model = load_my_model()
 
-# Video processing
+# 🎥 Video processing params
 IMG_SIZE = 112
 MAX_FRAMES = 16
 
@@ -26,7 +37,7 @@ def load_video_fast(path):
     if total_frames == 0:
         return None
     
-    indices = np.linspace(0, total_frames-1, MAX_FRAMES).astype(int)
+    indices = np.linspace(0, total_frames - 1, MAX_FRAMES).astype(int)
     
     for idx in indices:
         cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
@@ -41,12 +52,13 @@ def load_video_fast(path):
     
     cap.release()
     
+    # padding
     while len(frames) < MAX_FRAMES:
         frames.append(np.zeros((IMG_SIZE, IMG_SIZE, 3)))
     
     return np.array(frames)
 
-# Upload video
+# 📤 Upload video
 uploaded_file = st.file_uploader("Upload Echo Video", type=["mp4"])
 
 if uploaded_file is not None:
@@ -62,9 +74,10 @@ if uploaded_file is not None:
     if video is not None:
         video = np.expand_dims(video, axis=0)
         
+        # 🔮 Prediction
         pred = model.predict(video)
         pred = pred * 100  # de-normalize
         
-        st.success(f"Predicted EF: {pred[0][0]:.2f}")
+        st.success(f"💓 Predicted EF: {pred[0][0]:.2f}")
     else:
-        st.error("Error processing video")
+        st.error("❌ Error processing video")
