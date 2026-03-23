@@ -10,12 +10,12 @@ st.title("💓 Heart EF Prediction App")
 IMG_SIZE = 112
 MAX_FRAMES = 16
 
-# 🔥 MODEL ARCHITECTURE (same as training)
+# 🔥 MODEL ARCHITECTURE
 def build_model():
     
     base_model = tf.keras.applications.EfficientNetB0(
         include_top=False,
-        weights=None,   # ❗ important (weights later load honge)
+        weights=None,
         input_shape=(IMG_SIZE, IMG_SIZE, 3),
         pooling="avg"
     )
@@ -35,14 +35,15 @@ def build_model():
     return model
 
 
-# ✅ Load model + weights
+# ✅ Load model
 @st.cache_resource
 def load_my_model():
     model = build_model()
-    model.load_weights("model.weights.h5")   # 👈 important
+    model.load_weights("model.weights.h5")
     return model
 
 model = load_my_model()
+
 
 # 🎥 Video processing
 def load_video_fast(path):
@@ -69,7 +70,6 @@ def load_video_fast(path):
     
     cap.release()
     
-    # padding
     while len(frames) < MAX_FRAMES:
         frames.append(np.zeros((IMG_SIZE, IMG_SIZE, 3)))
     
@@ -82,19 +82,23 @@ uploaded_file = st.file_uploader("Upload Echo Video", type=["mp4"])
 if uploaded_file is not None:
     st.video(uploaded_file)
     
-    # temp file save
-    tfile = tempfile.NamedTemporaryFile(delete=False)
-    tfile.write(uploaded_file.read())
-    
-    video = load_video_fast(tfile.name)
-    
-    if video is not None:
-        video = np.expand_dims(video, axis=0)
+    # 👉 Predict button
+    if st.button("🔍 Predict EF"):
         
-        # 🔮 Prediction
-        pred = model.predict(video)
-        pred = pred * 100   # de-normalize
-        
-        st.success(f"💓 Predicted EF: {pred[0][0]:.2f}")
-    else:
-        st.error("❌ Error processing video")
+        with st.spinner("Processing video..."):
+            
+            # Save temp file
+            tfile = tempfile.NamedTemporaryFile(delete=False)
+            tfile.write(uploaded_file.read())
+            
+            video = load_video_fast(tfile.name)
+            
+            if video is not None:
+                video = np.expand_dims(video, axis=0)
+                
+                pred = model.predict(video)
+                pred = pred * 100
+                
+                st.success(f"💓 Predicted EF: {pred[0][0]:.2f}")
+            else:
+                st.error("❌ Error processing video")
