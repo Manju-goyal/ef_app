@@ -9,7 +9,7 @@ st.title("💓 Heart EF Prediction App")
 # Load model
 @st.cache_resource
 def load_my_model():
-    return load_model("final_ef_model.keras", compile=False)
+    return load_model("model.keras", compile=False)
 
 model = load_my_model()
 
