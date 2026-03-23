@@ -3,31 +3,48 @@ import numpy as np
 import cv2
 import tempfile
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.applications import EfficientNetB0
-
-# 🔥 Fix for Keras loading issues
-tf.keras.backend.clear_session()
+from tensorflow.keras import layers, models
 
 st.title("💓 Heart EF Prediction App")
 
-# ✅ Load model safely
-@st.cache_resource
-def load_my_model():
-    return load_model(
-        "model.h5",
-        compile=False,
-        custom_objects={
-            "EfficientNetB0": EfficientNetB0
-        }
-    )
-
-model = load_my_model()
-
-# 🎥 Video processing params
 IMG_SIZE = 112
 MAX_FRAMES = 16
 
+# 🔥 MODEL ARCHITECTURE (same as training)
+def build_model():
+    
+    base_model = tf.keras.applications.EfficientNetB0(
+        include_top=False,
+        weights=None,   # ❗ important (weights later load honge)
+        input_shape=(IMG_SIZE, IMG_SIZE, 3),
+        pooling="avg"
+    )
+    
+    inputs = layers.Input(shape=(MAX_FRAMES, IMG_SIZE, IMG_SIZE, 3))
+    
+    x = layers.TimeDistributed(base_model)(inputs)
+    x = layers.GlobalAveragePooling1D()(x)
+    
+    x = layers.Dense(128, activation='relu')(x)
+    x = layers.Dropout(0.3)(x)
+    
+    outputs = layers.Dense(1)(x)
+    
+    model = models.Model(inputs, outputs)
+    
+    return model
+
+
+# ✅ Load model + weights
+@st.cache_resource
+def load_my_model():
+    model = build_model()
+    model.load_weights("model.weights.h5")   # 👈 important
+    return model
+
+model = load_my_model()
+
+# 🎥 Video processing
 def load_video_fast(path):
     cap = cv2.VideoCapture(path)
     frames = []
@@ -58,17 +75,17 @@ def load_video_fast(path):
     
     return np.array(frames)
 
+
 # 📤 Upload video
 uploaded_file = st.file_uploader("Upload Echo Video", type=["mp4"])
 
 if uploaded_file is not None:
     st.video(uploaded_file)
     
-    # Save temp file
+    # temp file save
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(uploaded_file.read())
     
-    # Process video
     video = load_video_fast(tfile.name)
     
     if video is not None:
@@ -76,7 +93,7 @@ if uploaded_file is not None:
         
         # 🔮 Prediction
         pred = model.predict(video)
-        pred = pred * 100  # de-normalize
+        pred = pred * 100   # de-normalize
         
         st.success(f"💓 Predicted EF: {pred[0][0]:.2f}")
     else:
